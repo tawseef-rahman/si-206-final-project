@@ -10,7 +10,7 @@ def uvi_temperature(database):
                    SELECT c.city, AVG(w.temperature), AVG(w.uvi) 
                    FROM Cities c 
                    JOIN Weather w on c.id = w.city_id 
-                   GROUP BY c.city, AVG(w.temperature)
+                   GROUP BY c.city
                    """)
 
     rows = cursor.fetchall()
@@ -20,8 +20,8 @@ def uvi_temperature(database):
     average_uvi = []
     
     for row in rows:
-        average_temperatures.append(row[0])
-        average_uvi.append(row[1])
+        average_temperatures.append(row[1])
+        average_uvi.append(row[2])
     
     plt.scatter(average_temperatures, average_uvi, color="blue", label="Average UVI")
     
