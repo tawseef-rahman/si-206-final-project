@@ -8,7 +8,7 @@ def uvi_temperature(database):
     
     cursor.execute("""
                    SELECT c.city, AVG(w.temperature), AVG(w.uvi) 
-                   FROM City c 
+                   FROM Cities c 
                    JOIN Weather w on c.id = w.city_id 
                    GROUP BY c.city, AVG(w.temperature)
                    """)
@@ -41,7 +41,7 @@ def humidity_temperature(database):
     
     cursor.execute("""
                    SELECT c.city, AVG(w.temperature), AVG(w.humidity) 
-                   FROM City c 
+                   FROM Cities c 
                    JOIN Weather w on c.id = w.city_id 
                    GROUP BY c.city, AVG(w.temperature)
                    """)
