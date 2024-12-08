@@ -72,57 +72,56 @@ for city, state, population in cities:
     if cursor.rowcount > 0:
         city_insertion_counter += 1
 
-conn.commit()
-conn.close()
+WEATHER_KEY = 'fc5c995b5bb54956b89191743240612'
 
-# WEATHER_KEY = "fc5c995b5bb54956b89191743240612"
-# ACCUWEATHER_KEY = "BHpKgEB0PcMlge3GB9vrVTyeGni44wXd"
+def update_weather_data(db_file, api_key):
+    # Connect to the SQLite database
+    conn = sqlite3.connect(db_file)
+    cursor = conn.cursor()
 
-# def fetch_temperature_data():
-#     conn = sqlite3.connect("cities_states_weather.db")
-#     cursor = conn.cursor()
-    
-#     cursor.execute("""
-#                    SELECT id, city_name, state_id
-#                    FROM Cities
-#                    WHERE id NOT IN (SELECT city_name FROM Cities) LIMIT 25
-#                    """)
-#     cities = cursor.fetchall()
-    
-#     temperature_insertion_counter = 0
-#     for city_name, state_id, population in cities:
-#         query = f"{city_name}"
-#         weather_response = requests.get(f"http://api.weatherapi.com/v1/history.json?key=WEATHER_KEY&q=query&dt=2023-09-01")
-#         avg_high_temperature_fahrenheit_sep_1_2023 = weather_response["current"]["temperature"]
-#         cursor.execute("""
-#                        INSERT INTO Weather (city_name, avg_high_temperature_fahrenheit_sep_1_2023)
-#                        Values (?, ?)
-#                        """, (city_name, avg_high_temperature_fahrenheit_sep_1_2023))
-#         temperature_insertion_counter += 1
-    
-#     conn.commit()
-#     conn.close()
+    # Fetch city and state information from the database
+    cursor.execute("""
+    SELECT Cities.id, Cities.city_name, States.state_name
+    FROM Cities
+    JOIN States ON Cities.state_id = States.id
+    """)
+    cities = cursor.fetchall()
 
-# def fetch_rainfall_data():
-#     conn = sqlite3.connect("cities_states_weather.db")
-#     cursor = conn.cursor()
-#     cursor.execute("""
-#                    SELECT id, city_name, state_id
-#                    FROM Cities
-#                    WHERE id NOT IN (Select city_name FROM Cities) LIMIT 25
-#                    """)
-#     cities = cursor.fetchall()
-    
-#     for city_id, city_name, state in cities:
-#         query = f"{city_name}, {state}"
-#         rainfall_response = requests.get(f"http://dataservice.accuweather.com/currentconditions/v1/{query}", params={"apikey": ACCUWEATHER_KEY, "metric": "false"}).json()
-#         rainfall = rainfall_response[0]["PrecipitationSummary"]["Precipitation"]["Imperial"]["Value"]
-#         cursor.execute("""
-#                        INSERT INTO Cities (city_id, rainfall)
-#                        VALUES (?, ?)"""
-#                        , (city_id, rainfall))
-#     conn.commit()
-#     conn.close()
+    # Define base URL with placeholders for dynamic substitution
+    base_url = "http://api.weatherapi.com/v1/history.json?key={api_key}&q={city},{state}&dt={date}"
 
-# fetch_temperature_data()
-# fetch_rainfall_data()
+    # Iterate through each city and fetch weather data
+    for city_id, city_name, state_name in cities:
+        try:
+            # Construct the API URL dynamically
+            formatted_url = base_url.format(
+                api_key=api_key,
+                city=city_name.replace(" ", "+"),  # Replace spaces with '+' for URL encoding
+                state=state_name.replace(" ", "+"),
+                date="2023-09-01"  # Use the specified date
+            )
+
+            # Fetch weather data from the API
+            response = requests.get(formatted_url)
+            response.raise_for_status()  # Raise exception for HTTP errors
+            weather_data = response.json()
+
+            # Extract the average high temperature (Fahrenheit)
+            avg_high_temp = weather_data['forecast']['forecastday'][0]['day']['maxtemp_f']
+
+            # Insert or update the weather data in the Weather table
+            cursor.execute("""
+            INSERT OR IGNORE INTO Weather (
+                city_id, 
+                avg_high_temp_fahrenheit_sep_1_2023
+            ) VALUES (?, ?)
+            """, (city_id, avg_high_temp))
+
+        except Exception as e:
+            print(f"Failed to fetch weather data for {city_name}, {state_name}: {e}")
+
+    # Commit changes and close the database connection
+    conn.commit()
+    conn.close()
+
+update_weather_data("cities_states_weather.db", WEATHER_KEY)
