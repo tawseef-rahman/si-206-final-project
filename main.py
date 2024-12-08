@@ -32,8 +32,8 @@ def get_top_one_hundred_cities(url):
     
     return ciites_list
 
-def find_lattitude_longitude(cities_list, key):
-    lattitude_longitude_list = []
+def find_latitude_longitude(cities_list, key):
+    latitude_longitude_list = []
     for city in cities_list:
         url = f'https://api.api-ninjas.com/v1/geocoding?city={city}'
         response = requests.get(url, headers={'X-Api-Key': key})
@@ -41,20 +41,20 @@ def find_lattitude_longitude(cities_list, key):
             json_data = response.json()
             if len(json_data) > 0:
                 json_data = json_data[0]
-                lattitude = json_data["lattitude"]
+                latitude = json_data["latitude"]
                 longitude = json_data["longitude"]
-                lattitude_longitude_tuple = lattitude, longitude
-                lattitude_longitude_list.append(lattitude_longitude_tuple)
+                latitude_longitude_tuple = latitude, longitude
+                latitude_longitude_list.append(latitude_longitude_tuple)
         else:
-            print(f"Could not retrieve lattitude/longitude data for {city}")
-    return lattitude_longitude_list
+            print(f"Could not retrieve latitude/longitude data for {city}")
+    return latitude_longitude_list
 
-def create_cities_table(cursor, conn, cities_list, lattitude_longitude_list):
+def create_cities_table(cursor, conn, cities_list, latitude_longitude_list):
     cursor.execute("""
                    CREATE TABLE IF NOT EXISTS Cities 
                    (id INTEGER PRIMARY KEY, 
                    city TEXT, 
-                   lattitude FLOAT, 
+                   latitude FLOAT, 
                    longitude FLOAT)
                    """)
 
@@ -62,26 +62,17 @@ def create_cities_table(cursor, conn, cities_list, lattitude_longitude_list):
     index = 0
 
     while counter < 25 and index < len(cities_list):
-        cursor.execute(f"""
-                       SELECT city 
-                       FROM Cities 
-                       WHERE city = ?
-                       """
-                       , (cities_list[index]))
-        if not cursor.fetchone():
-            cursor.execute("""
-                           INSERT OR IGNORE INTO Cities (city, lattitude, longitude) 
-                           VALUES (?, ?, ?)
-                           """
-                           , (cities_list[index], lattitude_longitude_list[index][0], lattitude_longitude_list[index][1]))
-            counter += 1
-            index += 1
-        else:
-            index += 1
+        cursor.execute("""
+                        INSERT OR IGNORE INTO Cities (city, latitude, longitude) 
+                        VALUES (?, ?, ?)
+                        """
+                        , (cities_list[index], latitude_longitude_list[index][0], latitude_longitude_list[index][1]))
+        counter += 1
+        index += 1
 
     conn.commit()
 
-def weather_forecast(cursor, conn, key):
+def obtain_weather_forecast_data(cursor, conn, key):
     cursor.execute("""
                    CREATE TABLE IF NOT EXISTS Weather 
                    (id INTEGER PRIMARY KEY AUTOINCREMENT, 
@@ -102,7 +93,7 @@ def weather_forecast(cursor, conn, key):
                    """)
     
     cursor.execute("""
-                   SELECT lattitude, longitude 
+                   SELECT latitude, longitude 
                    FROM Cities
                    """)
     rows = cursor.fetchall()
@@ -111,31 +102,31 @@ def weather_forecast(cursor, conn, key):
     index = 0
     
     while counter < 5 and index < len(rows):
-        lattitude, longitude = rows[index]
-        cursor.execute(f"""
-                       SELECT id 
-                       FROM Cities 
-                       WHERE lattitude = {lattitude} and longitude = {longitude}
-                       """)
+        latitude, longitude = rows[index]
+        cursor.execute("""
+                    SELECT id 
+                    FROM Cities 
+                    WHERE latitude = ? AND longitude = ?
+                    """, (latitude, longitude))
         city_id = cursor.fetchone()[0]
         
         cursor.execute(f"""
                        SELECT city_id 
                        FROM Weather 
-                       WHERE city_id = '{city_id}'
-                       """)
+                       WHERE city_id = ?
+                       """, (city_id,))
         results = cursor.fetchall()
         
         if len(results) != 5:
             counter += 1
             index += 1
-            query = f"https://api.openweathermap.org/data/3.0/onecall?lat={lattitude}&lon={longitude}&exclude=current,minutely,hourly,alerts&units=imperial&appid={key}"
+            query = f"https://api.openweathermap.org/data/3.0/onecall?lat={latitude}&lon={longitude}&exclude=current,minutely,hourly,alerts&units=imperial&appid={key}"
             response = requests.get(query)
             
             if response.status_code == 200:
-                json_data = response.data()
-                time.sleep(60 / 60)
-                for i in range[5]:
+                json_data = response.json()
+                time.sleep(1)
+                for i in range(5):
                     day_data = json_data["daily"][i]
                     temperature = day_data["temp"]["day"]
                     humidity = day_data["humidity"]
@@ -163,7 +154,7 @@ def weather_forecast(cursor, conn, key):
                                    VALUES (?, ?, ?, ?, ?, ?)
                                    """, (city_id, temperature, humidity, air_pressure, uvi, forecast_date_id))
             else:
-                print(f"Error for lattitude: {lattitude}, longitude: {longitude}")
+                print(f"Error for latitude: {latitude}, longitude: {longitude}. Status Code: {response.status_code}")
         else:
             index += 1
     conn.commit()
@@ -174,9 +165,9 @@ OPENWEATHER_API_KEY = "71bca049ec2d03ed3e28ad1c89539085"
 def main():
     cursor, conn = set_up_database("cities_weather_dates.db")
     cities_list = get_top_one_hundred_cities("https://en.wikipedia.org/wiki/List_of_United_States_cities_by_population")
-    lattitude_longitude_list = find_lattitude_longitude(cities_list, GEOCODING_API_KEY)
-    create_cities_table(cursor, conn, cities_list, lattitude_longitude_list)
-    weather_forecast(cursor, conn, OPENWEATHER_API_KEY)
+    latitude_longitude_list = find_latitude_longitude(cities_list, GEOCODING_API_KEY)
+    create_cities_table(cursor, conn, cities_list, latitude_longitude_list)
+    obtain_weather_forecast_data(cursor, conn, OPENWEATHER_API_KEY)
     conn.close()
 
 main()
