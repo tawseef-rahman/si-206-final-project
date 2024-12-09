@@ -74,58 +74,48 @@ def create_cities_table(cursor, conn, cities_list, latitude_longitude_list):
 
 def obtain_weather_forecast_data(cursor, conn, key):
     cursor.execute("""
-                   CREATE TABLE IF NOT EXISTS Weather 
-                   (id INTEGER PRIMARY KEY AUTOINCREMENT, 
-                   city_id INTEGER, 
-                   temperature REAL, 
-                   humidity INTEGER, 
-                   air_pressure INTEGER, 
-                   uvi REAL, 
-                   forecast_date_id INTEGER, 
-                   FOREIGN KEY (forecast_date_id) REFERENCES Dates(id)
-                   )
-                   """)
-    
+    CREATE TABLE IF NOT EXISTS Weather 
+    (id INTEGER PRIMARY KEY AUTOINCREMENT, 
+    city_id INTEGER, 
+    temperature REAL, 
+    humidity INTEGER, 
+    air_pressure INTEGER, 
+    uvi REAL, 
+    forecast_date_id INTEGER, 
+    FOREIGN KEY (forecast_date_id) REFERENCES Dates(id))
+    """)
+
     cursor.execute("""
-                   CREATE TABLE IF NOT EXISTS Dates 
-                   (id INTEGER PRIMARY KEY, 
-                   forecast_date TEXT UNIQUE)
-                   """)
-    
+    CREATE TABLE IF NOT EXISTS Dates 
+    (id INTEGER PRIMARY KEY, 
+    forecast_date TEXT UNIQUE)
+    """)
+
     cursor.execute("""
-                   SELECT latitude, longitude 
-                   FROM Cities
-                   """)
+    SELECT latitude, longitude FROM Cities
+    """)
     rows = cursor.fetchall()
 
-    counter = 0
-    index = 0
-    
-    while counter < 5 and index < len(rows):
-        latitude, longitude = rows[index]
+    for latitude, longitude in rows:
         cursor.execute("""
-                    SELECT id 
-                    FROM Cities 
-                    WHERE latitude = ? AND longitude = ?
-                    """, (latitude, longitude))
+        SELECT id FROM Cities WHERE latitude = ? AND longitude = ?
+        """, (latitude, longitude))
         city_id = cursor.fetchone()[0]
-        
-        cursor.execute(f"""
-                       SELECT city_id 
-                       FROM Weather 
-                       WHERE city_id = ?
-                       """, (city_id,))
+
+        cursor.execute("""
+        SELECT city_id FROM Weather WHERE city_id = ?
+        """, (city_id,))
         results = cursor.fetchall()
-        
-        if len(results) != 5:
-            counter += 1
-            index += 1
-            query = f"https://api.openweathermap.org/data/3.0/onecall?lat={latitude}&lon={longitude}&exclude=current,minutely,hourly,alerts&units=imperial&appid={key}"
-            response = requests.get(query)
-            
-            if response.status_code == 200:
-                json_data = response.json()
-                time.sleep(1)
+
+        if len(results) >= 5:
+            continue
+
+        query = f"https://api.openweathermap.org/data/2.5/onecall?lat={latitude}&lon={longitude}&exclude=hourly,minutely,current,alerts&appid={key}&units=metric"
+        response = requests.get(query)
+
+        if response.status_code == 200:
+            json_data = response.json()
+            if "daily" in json_data:
                 for i in range(5):
                     day_data = json_data["daily"][i]
                     temperature = day_data["temp"]["day"]
@@ -133,34 +123,31 @@ def obtain_weather_forecast_data(cursor, conn, key):
                     air_pressure = day_data["pressure"]
                     uvi = day_data["uvi"]
                     forecast_date = datetime.datetime.utcfromtimestamp(day_data["dt"]).strftime("%Y-%m-%d")
-                    
+
                     cursor.execute("""
-                                   SELECT id 
-                                   FROM Dates 
-                                   WHERE forecast_date = ?
-                                   """, (forecast_date,))
+                    SELECT id FROM Dates WHERE forecast_date = ?
+                    """, (forecast_date,))
                     check_forecast_date = cursor.fetchone()
+
                     if check_forecast_date:
                         forecast_date_id = check_forecast_date[0]
                     else:
                         cursor.execute("""
-                                       INSERT INTO Dates (forecast_date) 
-                                       VALUES (?)
-                                       """, (forecast_date,))
+                        INSERT INTO Dates (forecast_date) VALUES (?)
+                        """, (forecast_date,))
                         forecast_date_id = cursor.lastrowid
-                    
+
                     cursor.execute("""
-                                   INSERT INTO Weather (city_id, temperature, humidity, air_pressure, uvi, forecast_date_id)
-                                   VALUES (?, ?, ?, ?, ?, ?)
-                                   """, (city_id, temperature, humidity, air_pressure, uvi, forecast_date_id))
-            else:
-                print(f"Error for latitude: {latitude}, longitude: {longitude}. Status Code: {response.status_code}")
+                    INSERT INTO Weather (city_id, temperature, humidity, air_pressure, uvi, forecast_date_id)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """, (city_id, temperature, humidity, air_pressure, uvi, forecast_date_id))
         else:
-            index += 1
-    conn.commit()
+            print(f"Error fetching data for latitude {latitude}, longitude {longitude}: {response.status_code}")
+
+        conn.commit()
 
 GEOCODING_API_KEY = "TwKQDgESethKPcrtL7ILAA==vhSXJAiFlQ5DWgHZ"
-OPENWEATHER_API_KEY = "71bca049ec2d03ed3e28ad1c89539085"
+OPENWEATHER_API_KEY = "6712b9ccecf3c3cfc8b36b9b8c81cd25"
 
 def main():
     cursor, conn = set_up_database("cities_weather_dates.db")
