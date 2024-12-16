@@ -148,10 +148,13 @@ OPENWEATHER_API_KEY = "6712b9ccecf3c3cfc8b36b9b8c81cd25"
 
 def main():
     cursor, conn = set_up_database("cities_weather_dates.db")
+
     cities_list = get_top_one_hundred_cities("https://en.wikipedia.org/wiki/List_of_United_States_cities_by_population")
     latitude_longitude_list = find_latitude_longitude(cities_list, GEOCODING_API_KEY)
+
     cities_latitude_longitude_operation(cursor, conn, cities_list, latitude_longitude_list)
     weather_forecast_operation(cursor, conn, OPENWEATHER_API_KEY)
+
     conn.close()
 
 main()
