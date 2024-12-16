@@ -76,7 +76,7 @@ def average_air_pressure_average_wind_speed_operation(database, output_file):
     plt.plot(average_wind_speeds, slope * average_wind_speeds + intercept, color="green", label=f"Trendline: {equation}")
     
     x_label = "Average Wind Speed (miles/hour)"
-    y_label = "Average Air Pressure (hectopascal)"
+    y_label = "Average Air Pressure (hectopascals)"
     title = "Average Air Pressure vs. Average Wind Speed (12/16/24-12/20/24)"
     plt.xlabel(x_label)
     plt.ylabel(y_label)
