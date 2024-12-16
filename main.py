@@ -76,13 +76,76 @@ def cities_latitude_longitude_operation(cursor, conn, cities_list, latitude_long
     
     conn.commit()
 
+def weather_forecast_operation(cursor, conn, key):
+    cursor.execute("""
+                   CREATE TABLE IF NOT EXISTS Weather 
+                   (id INTEGER PRIMARY KEY, 
+                   city_id INTEGER, 
+                   temperature REAL, 
+                   humidity INTEGER, 
+                   air_pressure INTEGER, 
+                   wind_speed REAL, 
+                   forecast_date_id INTEGER, 
+                   FOREIGN KEY (city_id) REFERENCES Cities(id), 
+                   FOREIGN KEY (forecast_date_id) REFERENCES Dates(id))
+                   """)
+    
+    cursor.execute("""
+                   CREATE TABLE IF NOT EXISTS Dates 
+                   (id INTEGER PRIMARY KEY, 
+                   forecast_date TEXT UNIQUE)
+                   """)
+    
+    cursor.execute("""
+                   SELECT id, latitude, longitude 
+                   FROM CITIES
+                   """)
+    cities = cursor.fetchall()
+    
+    for city_id, latitude, longitude in cities:
+        query = f"https://api.openweathermap.org/data/2.5/forecast/daily?lat={latitude}&lon={longitude}&cnt=5&appid={key}&units=imperial"
+        response = requests.get(query)
+        
+        if response.status_code == 200:
+            weather_data = response.json()
+            
+            for daily_forecast in weather_data["list"]:
+                forecast_date = datetime.datetime.fromtimestamp(daily_forecast["dt"], datetime.timezone.utc).strftime("%Y-%m-%d")
+                temperature = daily_forecast["temp"]["max"]
+                humidity = daily_forecast["humidity"]
+                air_pressure = daily_forecast["pressure"]
+                wind_speed = daily_forecast["speed"]
+                
+                cursor.execute("""
+                               INSERT OR IGNORE INTO Dates (forecast_date) 
+                               VALUES (?)
+                               """, (forecast_date,))
+                cursor.execute("""
+                               SELECT id 
+                               FROM Dates 
+                               WHERE forecast_date = ?
+                               """, (forecast_date,))
+                forecast_date_id = cursor.fetchone()[0]
+                
+                cursor.execute("""
+                               INSERT OR IGNORE INTO Weather 
+                               (city_id, temperature, humidity, air_pressure, wind_speed, forecast_date_id) 
+                               VALUES (?, ?, ?, ?, ?, ?)
+                               """, (city_id, temperature, humidity, air_pressure, wind_speed, forecast_date_id))
+        else:
+            print(f"Error: Could not retrieve weather data for city with ID {city_id}, latitude {latitude}, and longitude {longitude}")
+    
+    conn.commit()
+
 GEOCODING_API_KEY = "TwKQDgESethKPcrtL7ILAA==vhSXJAiFlQ5DWgHZ"
+OPENWEATHER_API_KEY = "6712b9ccecf3c3cfc8b36b9b8c81cd25"
 
 def main():
     cursor, conn = set_up_database("cities_weather_dates.db")
     cities_list = get_top_one_hundred_cities("https://en.wikipedia.org/wiki/List_of_United_States_cities_by_population")
     latitude_longitude_list = find_latitude_longitude(cities_list, GEOCODING_API_KEY)
     cities_latitude_longitude_operation(cursor, conn, cities_list, latitude_longitude_list)
+    weather_forecast_operation(cursor, conn, OPENWEATHER_API_KEY)
     conn.close()
 
 main()
