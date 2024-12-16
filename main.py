@@ -79,7 +79,7 @@ def weather_forecast_operation(cursor, conn, key):
                    CREATE TABLE IF NOT EXISTS Weather 
                    (id INTEGER PRIMARY KEY, 
                    city_id INTEGER, 
-                   temperature REAL, 
+                   high_temperature REAL, 
                    humidity INTEGER, 
                    air_pressure INTEGER, 
                    wind_speed REAL, 
@@ -109,7 +109,7 @@ def weather_forecast_operation(cursor, conn, key):
             
             for daily_forecast in weather_data["list"]:
                 forecast_date = datetime.datetime.fromtimestamp(daily_forecast["dt"], datetime.timezone.utc).strftime("%Y-%m-%d")
-                temperature = daily_forecast["temp"]["max"]
+                high_temperature = daily_forecast["temp"]["max"]
                 humidity = daily_forecast["humidity"]
                 air_pressure = daily_forecast["pressure"]
                 wind_speed = daily_forecast["speed"]
@@ -135,9 +135,9 @@ def weather_forecast_operation(cursor, conn, key):
                 if not exists:
                     cursor.execute("""
                                    INSERT INTO Weather 
-                                   (city_id, temperature, humidity, air_pressure, wind_speed, forecast_date_id) 
+                                   (city_id, high_temperature, humidity, air_pressure, wind_speed, forecast_date_id) 
                                    VALUES (?, ?, ?, ?, ?, ?)
-                                   """, (city_id, temperature, humidity, air_pressure, wind_speed, forecast_date_id))
+                                   """, (city_id, high_temperature, humidity, air_pressure, wind_speed, forecast_date_id))
         else:
             print(f"Error: Could not retrieve weather data for city with ID {city_id}, latitude {latitude}, and longitude {longitude}")
     
