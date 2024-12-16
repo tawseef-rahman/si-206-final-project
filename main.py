@@ -62,17 +62,15 @@ def cities_latitude_longitude_operation(cursor, conn, cities_list, latitude_long
                    SELECT COUNT(*) 
                    FROM Cities
                    """)
-    index = cursor.fetchone()[0]
+    existing_count = cursor.fetchone()[0]
     
-    counter = 0
-    while counter < 25 and index < len(cities_list):
+    new_entries = cities_list[existing_count:existing_count + 25]
+    for i, city in enumerate(new_entries):
+        latitude, longitude = latitude_longitude_list[existing_count + i]
         cursor.execute("""
                        INSERT OR IGNORE INTO Cities (city, latitude, longitude) 
                        VALUES (?, ?, ?)
-                       """,
-                       (cities_list[index], latitude_longitude_list[index][0], latitude_longitude_list[index][1]))
-        counter += 1
-        index += 1
+                       """, (city, latitude, longitude))
     
     conn.commit()
 
@@ -98,7 +96,7 @@ def weather_forecast_operation(cursor, conn, key):
     
     cursor.execute("""
                    SELECT id, latitude, longitude 
-                   FROM CITIES
+                   FROM Cities
                    """)
     cities = cursor.fetchall()
     
@@ -128,10 +126,18 @@ def weather_forecast_operation(cursor, conn, key):
                 forecast_date_id = cursor.fetchone()[0]
                 
                 cursor.execute("""
-                               INSERT OR IGNORE INTO Weather 
-                               (city_id, temperature, humidity, air_pressure, wind_speed, forecast_date_id) 
-                               VALUES (?, ?, ?, ?, ?, ?)
-                               """, (city_id, temperature, humidity, air_pressure, wind_speed, forecast_date_id))
+                               SELECT COUNT(*) 
+                               FROM Weather 
+                               WHERE city_id = ? AND forecast_date_id = ?
+                               """, (city_id, forecast_date_id))
+                exists = cursor.fetchone()[0]
+                
+                if not exists:
+                    cursor.execute("""
+                                   INSERT INTO Weather 
+                                   (city_id, temperature, humidity, air_pressure, wind_speed, forecast_date_id) 
+                                   VALUES (?, ?, ?, ?, ?, ?)
+                                   """, (city_id, temperature, humidity, air_pressure, wind_speed, forecast_date_id))
         else:
             print(f"Error: Could not retrieve weather data for city with ID {city_id}, latitude {latitude}, and longitude {longitude}")
     
