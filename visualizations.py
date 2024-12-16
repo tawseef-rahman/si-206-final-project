@@ -86,13 +86,60 @@ def average_air_pressure_average_wind_speed_operation(database, output_file):
     plt.savefig(output_file, format='png', dpi=300)
     print(f"Scatter Plot: {title} saved to {output_file}")
 
+def average_high_temperatures_operation(database, output_file):
+    plt.figure()
+    
+    conn = sqlite3.connect(database)
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+                   SELECT c.city, AVG(w.high_temperature) 
+                   FROM Cities c 
+                   JOIN Weather w on c.id = w.city_id 
+                   GROUP BY c.city
+                   """)
+    rows = cursor.fetchall()
+    conn.close()
+    
+    average_high_temperatures = []
+    for row in rows:
+        average_high_temperatures.append(row[1])
+    
+    bins = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+    colors = ["red", "orange", "green", "blue", "purple", "brown", "pink", "gray", "olive", "cyan", "black"]
+    
+    bin_data = []
+    
+    for i in range(len(bins) - 1):
+        for high_temperature in average_high_temperatures:
+            if bins[i] <= high_temperature < bins[i + 1]:
+                bin_data.append(high_temperature)
+            plt.hist(bin_data, bins=bins[i:i+2], color=colors[i])
+    
+    average_of_average_high_temperatures = np.mean(average_high_temperatures)
+    
+    x_label = "Average High Temperature (degrees Fahrenheit)"
+    y_label = "Frequency"
+    title = "Average High Temperatures (12/16/24-12/20/24)"
+    plt.xlabel(x_label)
+    plt.ylabel(y_label)
+    plt.title(title)
+    plt.axvline(average_of_average_high_temperatures, color='k', linestyle='--', linewidth=2, label=f"Average of the Average High Temperatures: {average_of_average_high_temperatures:.2f} degrees Fahrenheit")
+    plt.xticks(bins)
+    plt.legend(loc='upper left', prop={'size': 5})
+    
+    plt.savefig(output_file, format='png', dpi=300)
+    print(f"Histogram: {title} saved to {output_file}")
+
 def main():
     database = "cities_weather_dates.db"
     
     average_humidity_average_high_temperature_file = "average_humidity_vs_average_high_temperature.png"
     average_air_pressure_average_wind_speed_file = "average_air_pressure_vs_average_wind_speed.png"
+    average_high_temperatures_file = "average_high_temperatures.png"
 
     average_humidity_average_high_temperature_operation(database, average_humidity_average_high_temperature_file)
     average_air_pressure_average_wind_speed_operation(database, average_air_pressure_average_wind_speed_file)
+    average_high_temperatures_operation(database, average_high_temperatures_file)
 
 main()
