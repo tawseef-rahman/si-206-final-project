@@ -142,4 +142,5 @@ def main():
     average_air_pressure_average_wind_speed_operation(database, average_air_pressure_average_wind_speed_file)
     average_high_temperatures_operation(database, average_high_temperatures_file)
 
-main()
+if __name__ == "__main__":
+    main()

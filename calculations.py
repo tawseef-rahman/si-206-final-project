@@ -30,4 +30,5 @@ def main():
     
     calculate_averages(database, output_file)
 
-main()
+if __name__ == "__main__":
+    main()

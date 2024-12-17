@@ -2,7 +2,6 @@ import requests
 import sqlite3
 import os
 import datetime
-import time
 from bs4 import BeautifulSoup
 
 def set_up_database(database_name):
@@ -71,7 +70,7 @@ def cities_latitude_longitude_operation(cursor, conn, cities_list, latitude_long
                        INSERT OR IGNORE INTO Cities (city, latitude, longitude) 
                        VALUES (?, ?, ?)
                        """, (city, latitude, longitude))
-    
+        print(f"Added in the city information for city {city} with latitude {latitude}, and longitude {longitude}")
     conn.commit()
 
 def weather_forecast_operation(cursor, conn, key):
@@ -138,6 +137,7 @@ def weather_forecast_operation(cursor, conn, key):
                                    (city_id, high_temperature, humidity, air_pressure, wind_speed, forecast_date_id) 
                                    VALUES (?, ?, ?, ?, ?, ?)
                                    """, (city_id, high_temperature, humidity, air_pressure, wind_speed, forecast_date_id))
+            print(f"Added in the weather information for city with ID {city_id}, latitude {latitude}, and longitude {longitude} in the Weather table of the database")
         else:
             print(f"Error: Could not retrieve weather data for city with ID {city_id}, latitude {latitude}, and longitude {longitude}")
     
@@ -157,4 +157,5 @@ def main():
 
     conn.close()
 
-main()
+if __name__ == "__main__":
+    main()
